@@ -8,6 +8,13 @@ const config: Config = {
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
+    container: {
+      center: true,
+      padding: "2rem",
+      screens: {
+        "2xl": "1400px",
+      },
+    },
     extend: {
       colors: {
         border: "hsl(var(--border))",
@@ -58,19 +65,14 @@ const config: Config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
-        "typing-dot": {
-          "0%, 60%, 100%": { transform: "translateY(0)" },
-          "30%": { transform: "translateY(-4px)" },
-        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        "typing-dot": "typing-dot 1.4s infinite ease-in-out both",
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [],
 };
 
 export default config;

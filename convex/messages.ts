@@ -1,58 +1,108 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
+interface Message {
+  _id: any;
+  conversationId: any;
+  senderId: string;
+  content: string;
+  isDeleted?: boolean;
+  createdAt: number;
+  attachments?: any[];
+}
+
 export const getMessages = query({
-  args: { conversationId: v.id("conversations") },
-  handler: async (ctx, args) => {
-    const messages = await ctx.db
+  args: {
+    conversationId: v.id("conversations"),
+    limit: v.optional(v.number()),
+    cursor: v.optional(v.string()),
+  },
+  handler: async (
+    ctx: any, 
+    args: { conversationId: any; limit?: number; cursor?: string }
+  ): Promise<Message[]> => {
+    const userId = ctx.auth.userId();
+    if (!userId) {
+      throw new Error("Unauthorized");
+    }
+
+    // Verify user is a participant in the conversation
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) {
+      throw new Error("Conversation not found");
+    }
+    
+    if (!conversation.participants.includes(userId)) {
+      throw new Error("Unauthorized: not a participant in this conversation");
+    }
+
+    const limit = args.limit || 50;
+
+    let messagesQuery = ctx.db
       .query("messages")
-      .withIndex("by_conversation_id", (q) =>
+      .withIndex("by_conversationId", (q: any) =>
         q.eq("conversationId", args.conversationId)
       )
-      .order("asc")
-      .collect();
+      .filter((q: any) => q.eq(q.field("isDeleted"), false))
+      .order("desc")
+      .take(limit);
 
-    return messages;
+    return await messagesQuery;
   },
 });
 
-export const sendMessage = mutation({
+export const getMessage = query({
+  args: { messageId: v.id("messages") },
+  handler: async (ctx: any, args: { messageId: any }): Promise<Message | null> => {
+    return await ctx.db.get(args.messageId);
+  },
+});
+
+export const createMessage = mutation({
   args: {
     conversationId: v.id("conversations"),
     senderId: v.string(),
     content: v.string(),
+    attachments: v.optional(v.array(v.any())),
   },
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx: any, 
+    args: { conversationId: any; senderId: string; content: string; attachments?: any[] }
+  ) => {
+    // Verify authenticated user matches sender
+    const userId = ctx.auth.userId();
+    if (!userId || userId !== args.senderId) {
+      throw new Error("Unauthorized: cannot send messages as another user");
+    }
+
+    // Verify user is a participant in the conversation
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) {
+      throw new Error("Conversation not found");
+    }
+    
+    if (!conversation.participants.includes(userId)) {
+      throw new Error("Unauthorized: not a participant in this conversation");
+    }
+
+    // Validate message content
+    if (!args.content || args.content.trim().length === 0) {
+      throw new Error("Message content cannot be empty");
+    }
+
+    if (args.content.length > 4000) {
+      throw new Error("Message content exceeds maximum length of 4000 characters");
+    }
+
+    // Create the message
     const messageId = await ctx.db.insert("messages", {
       conversationId: args.conversationId,
       senderId: args.senderId,
       content: args.content,
-      createdAt: Date.now(),
+      attachments: args.attachments,
       isDeleted: false,
-      reactions: [],
+      createdAt: Date.now(),
     });
-
-    // Update conversation's updatedAt
-    const conversation = await ctx.db.get(args.conversationId);
-    if (conversation) {
-      await ctx.db.patch(args.conversationId, {
-        updatedAt: Date.now(),
-      });
-    }
-
-    // Update read status for sender
-    const readStatus = await ctx.db
-      .query("conversationReads")
-      .withIndex("by_conversation_and_user", (q) =>
-        q.eq("conversationId", args.conversationId).eq("userId", args.senderId)
-      )
-      .first();
-
-    if (readStatus) {
-      await ctx.db.patch(readStatus._id, {
-        lastReadAt: Date.now(),
-      });
-    }
 
     return messageId;
   },
@@ -60,126 +110,94 @@ export const sendMessage = mutation({
 
 export const deleteMessage = mutation({
   args: { messageId: v.id("messages") },
-  handler: async (ctx, args) => {
+  handler: async (ctx: any, args: { messageId: any }) => {
+    const userId = ctx.auth.userId();
+    if (!userId) {
+      throw new Error("Unauthorized");
+    }
+
+    // Get the message to verify ownership
+    const message = await ctx.db.get(args.messageId);
+    if (!message) {
+      throw new Error("Message not found");
+    }
+
+    // Only the sender can delete their own message
+    if (message.senderId !== userId) {
+      throw new Error("Unauthorized: can only delete your own messages");
+    }
+
     await ctx.db.patch(args.messageId, {
       isDeleted: true,
     });
   },
 });
 
-export const addReaction = mutation({
+export const updateMessage = mutation({
   args: {
     messageId: v.id("messages"),
-    emoji: v.string(),
-    userId: v.string(),
+    content: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: any, args: { messageId: any; content: string }) => {
+    const userId = ctx.auth.userId();
+    if (!userId) {
+      throw new Error("Unauthorized");
+    }
+
+    // Get the message to verify ownership
     const message = await ctx.db.get(args.messageId);
-    if (!message) return;
+    if (!message) {
+      throw new Error("Message not found");
+    }
 
-    const existingReaction = message.reactions.find(
-      (r) => r.emoji === args.emoji && r.userId === args.userId
-    );
+    // Only the sender can update their own message
+    if (message.senderId !== userId) {
+      throw new Error("Unauthorized: can only edit your own messages");
+    }
 
-    let newReactions;
-    if (existingReaction) {
-      newReactions = message.reactions.filter(
-        (r) => !(r.emoji === args.emoji && r.userId === args.userId)
-      );
-    } else {
-      newReactions = [
-        ...message.reactions,
-        { emoji: args.emoji, userId: args.userId },
-      ];
+    // Validate message content
+    if (!args.content || args.content.trim().length === 0) {
+      throw new Error("Message content cannot be empty");
+    }
+
+    if (args.content.length > 4000) {
+      throw new Error("Message content exceeds maximum length of 4000 characters");
     }
 
     await ctx.db.patch(args.messageId, {
-      reactions: newReactions,
+      content: args.content,
     });
   },
 });
 
-export const getUnreadCount = query({
-  args: {
-    conversationId: v.id("conversations"),
-    userId: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const conversation = await ctx.db.get(args.conversationId);
-    if (!conversation) return 0;
-
-    const readStatus = await ctx.db
-      .query("conversationReads")
-      .withIndex("by_conversation_and_user", (q) =>
-        q.eq("conversationId", args.conversationId).eq("userId", args.userId)
-      )
-      .first();
-
-    if (!readStatus) return 0;
-
-    // Use the index efficiently - get messages after last read time
-    const messages = await ctx.db
-      .query("messages")
-      .withIndex("by_conversation_id", (q) =>
-        q.eq("conversationId", args.conversationId)
-      )
-      .filter((q) => q.gt(q.field("createdAt"), readStatus.lastReadAt))
-      .collect();
-
-    // Count messages from other users (not from self)
-    const unreadCount = messages.filter(
-      (m) => m.senderId !== args.userId
-    ).length;
-
-    return unreadCount;
-  },
-});
-
-export const markAsRead = mutation({
-  args: {
-    conversationId: v.id("conversations"),
-    userId: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const readStatus = await ctx.db
-      .query("conversationReads")
-      .withIndex("by_conversation_and_user", (q) =>
-        q.eq("conversationId", args.conversationId).eq("userId", args.userId)
-      )
-      .first();
-
-    if (readStatus) {
-      await ctx.db.patch(readStatus._id, {
-        lastReadAt: Date.now(),
-      });
-    }
-  },
-});
-
-export const onMessages = query({
-  args: { conversationId: v.id("conversations") },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("messages")
-      .withIndex("by_conversation_id", (q) =>
-        q.eq("conversationId", args.conversationId)
-      )
-      .order("asc")
-      .collect();
-  },
-});
-
+// Query to get the last message in a conversation
 export const getLastMessage = query({
   args: { conversationId: v.id("conversations") },
-  handler: async (ctx, args) => {
-    const messages = await ctx.db
+  handler: async (ctx: any, args: { conversationId: any }): Promise<Message | null> => {
+    const userId = ctx.auth.userId();
+    if (!userId) {
+      throw new Error("Unauthorized");
+    }
+
+    // Verify user is a participant in the conversation
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) {
+      throw new Error("Conversation not found");
+    }
+    
+    if (!conversation.participants.includes(userId)) {
+      throw new Error("Unauthorized: not a participant in this conversation");
+    }
+
+    const lastMessage = await ctx.db
       .query("messages")
-      .withIndex("by_conversation_id", (q) =>
+      .withIndex("by_conversationId", (q: any) =>
         q.eq("conversationId", args.conversationId)
       )
+      .filter((q: any) => q.eq(q.field("isDeleted"), false))
       .order("desc")
       .first();
 
-    return messages;
+    return lastMessage;
   },
 });

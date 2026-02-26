@@ -1,36 +1,29 @@
-import type { Metadata } from 'next'
-import { ClerkProvider } from '@clerk/nextjs'
-import { Geist, Geist_Mono } from 'next/font/google'
-import './globals.css'
-import { ConvexClientProvider } from "@/components/providers/convex-provider";
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+import { Providers } from "./providers";
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-})
+export const dynamic = "force-dynamic";
 
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-})
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'Chat App',
-  description: 'Real-time chat messaging application',
-}
+  title: "Live Chat App",
+  description: "A modern chat application",
+};
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode
+  children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
-      <html lang="en" className="dark">
-        <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-          <ConvexClientProvider>{children}</ConvexClientProvider>
-        </body>
-      </html>
-    </ClerkProvider>
-  )
+    <html lang="en">
+      <body className={inter.className}>
+        <Providers>
+          {children}
+        </Providers>
+      </body>
+    </html>
+  );
 }

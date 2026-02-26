@@ -3,55 +3,70 @@ import { v } from "convex/values";
 
 export default defineSchema({
   users: defineTable({
-    clerkId: v.string(),
-    username: v.string(),
+    userId: v.string(),
+    name: v.string(),
     email: v.string(),
-    avatarUrl: v.string(),
-    createdAt: v.number(),
-    lastSeen: v.number(),
-    isOnline: v.boolean(),
+    avatarUrl: v.optional(v.string()),
+    isOnline: v.optional(v.boolean()),
+    username: v.optional(v.string()),
+    tokenIdentifier: v.optional(v.string()),
   })
-    .index("by_clerk_id", ["clerkId"])
-    .index("by_email", ["email"]),
+    .index("by_userId", ["userId"])
+    .index("by_email", ["email"])
+    .index("by_token", ["tokenIdentifier"]),
 
   conversations: defineTable({
-    type: v.union(v.literal("direct"), v.literal("group")),
     name: v.optional(v.string()),
-    memberIds: v.array(v.string()),
-    createdBy: v.string(),
+    isGroup: v.boolean(),
+    participants: v.array(v.string()), // Clerk user IDs
+    createdBy: v.string(), // Clerk user ID
     createdAt: v.number(),
-    updatedAt: v.number(),
   })
-    .index("by_member_ids", ["memberIds"])
-    .index("by_updated_at", ["updatedAt"]),
+    .index("by_createdBy", ["createdBy"])
+    .index("by_participants", ["participants"]),
 
   messages: defineTable({
     conversationId: v.id("conversations"),
-    senderId: v.string(),
+    senderId: v.string(), // Clerk user ID
     content: v.string(),
+    isDeleted: v.optional(v.boolean()),
     createdAt: v.number(),
-    isDeleted: v.boolean(),
-    reactions: v.array(
-      v.object({
-        emoji: v.string(),
-        userId: v.string(),
-      })
+    attachments: v.optional(
+      v.array(
+        v.object({
+          type: v.union(v.literal("image"), v.literal("file")),
+          url: v.string(),
+          name: v.string(),
+          size: v.number(),
+        })
+      )
     ),
   })
-    .index("by_conversation_id", ["conversationId"])
-    .index("by_created_at", ["createdAt"]),
+    .index("by_conversationId", ["conversationId"])
+    .index("by_senderId", ["senderId"])
+    .index("by_createdAt", ["conversationId", "createdAt"]),
 
-  conversationReads: defineTable({
+  typing: defineTable({
     conversationId: v.id("conversations"),
-    userId: v.string(),
-    lastReadAt: v.number(),
-  })
-    .index("by_conversation_and_user", ["conversationId", "userId"]),
-
-  typingIndicators: defineTable({
-    conversationId: v.id("conversations"),
-    userId: v.string(),
+    userId: v.string(), // Clerk user ID
     isTyping: v.boolean(),
-    updatedAt: v.number(),
-  }).index("by_conversation", ["conversationId"]).index("by_conversation_and_user", ["conversationId", "userId"]),
+  })
+    .index("by_conversationId", ["conversationId"])
+    .index("by_userId", ["userId"]),
+
+  presence: defineTable({
+    userId: v.string(), // Clerk user ID
+    status: v.union(v.literal("online"), v.literal("offline"), v.literal("away")),
+    lastSeen: v.optional(v.number()),
+  }).index("by_userId", ["userId"]),
+
+  unreadMessages: defineTable({
+    userId: v.string(), // Clerk user ID
+    conversationId: v.id("conversations"),
+    count: v.number(),
+    lastReadAt: v.optional(v.number()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_conversationId", ["conversationId"])
+    .index("by_user_conversation", ["userId", "conversationId"]),
 });

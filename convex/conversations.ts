@@ -1,123 +1,259 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
-export const getConversations = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
-    // Note: Convex doesn't support array containment queries efficiently.
-    // We query all conversations and filter in memory.
-    // For production with high volume, consider creating a separate
-    // conversation_members table with individual user indexes.
-    const allConversations = await ctx.db
-      .query("conversations")
-      .withIndex("by_updated_at")
-      .order("desc")
-      .take(100); // Limit to recent 100 conversations for performance
+// Type definitions for cleaner code
+interface Conversation {
+  _id: any;
+  name?: string;
+  isGroup: boolean;
+  participants: string[];
+  createdBy: string;
+  createdAt: number;
+}
 
-    // Filter conversations where userId is in memberIds
-    return allConversations.filter((conv) => 
-      conv.memberIds.includes(args.userId)
-    );
+export const getConversations = query({
+  args: { userId: v.string() }, // Clerk user ID
+  handler: async (ctx: any, args: { userId: string }): Promise<Conversation[]> => {
+    // Verify the requesting user is the same as the userId parameter
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+    const authUserId = identity.subject;
+    if (!authUserId || authUserId !== args.userId) {
+      throw new Error("Unauthorized: cannot access other user's conversations");
+    }
+
+    const conversations = await ctx.db
+      .query("conversations")
+      .filter((q: any) => q.arrayContains("participants", args.userId))
+      .collect();
+
+    return conversations;
   },
 });
 
 export const getConversation = query({
   args: { conversationId: v.id("conversations") },
-  handler: async (ctx, args) => {
-    return await ctx.db.get(args.conversationId);
+  handler: async (ctx: any, args: { conversationId: any }): Promise<any> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    if (!userId) {
+      throw new Error("Unauthorized");
+    }
+
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) {
+      return null;
+    }
+
+    // Verify user is a participant
+    if (!conversation.participants.includes(userId)) {
+      throw new Error("Unauthorized: not a participant in this conversation");
+    }
+
+    // For now, return conversation as is
+    // We'll handle user names on the client side
+    return conversation;
   },
 });
 
-export const findDirectConversation = query({
-  args: { userId1: v.string(), userId2: v.string() },
-  handler: async (ctx, args) => {
-    // Note: Convex doesn't support array containment efficiently.
-    // Query recent conversations and search for the direct message.
-    // For production, consider a separate table for direct message lookups.
+export const getDirectConversation = query({
+  args: {
+    userId1: v.string(), // Clerk user ID
+    userId2: v.string(), // Clerk user ID
+  },
+  handler: async (ctx: any, args: { userId1: string; userId2: string }): Promise<Conversation | null> => {
+    // Verify the authenticated user is one of the requested users
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const authUserId = identity.subject;
+    if (!authUserId || (authUserId !== args.userId1 && authUserId !== args.userId2)) {
+      throw new Error("Unauthorized");
+    }
+
     const conversations = await ctx.db
       .query("conversations")
-      .filter((q) => q.eq("type", "direct"))
-      .take(50); // Limit to recent 50 direct messages
+      .filter((q: any) => 
+        q.and(
+          q.eq(q.field("isGroup"), false),
+          q.arrayContains("participants", args.userId1),
+          q.arrayContains("participants", args.userId2)
+        )
+      )
+      .first();
 
-    return conversations.find(
-      (conv) =>
-        conv.memberIds.includes(args.userId1) &&
-        conv.memberIds.includes(args.userId2)
-    );
+    return conversations;
   },
 });
 
 export const createConversation = mutation({
   args: {
-    type: v.union(v.literal("direct"), v.literal("group")),
-    memberIds: v.array(v.string()),
+    participants: v.array(v.string()), // Clerk user IDs
     name: v.optional(v.string()),
-    createdBy: v.string(),
+    isGroup: v.boolean(),
+    createdBy: v.string(), // Clerk user ID
   },
-  handler: async (ctx, args) => {
-    const conversationId = await ctx.db.insert("conversations", {
-      type: args.type,
-      memberIds: args.memberIds,
-      name: args.name,
-      createdBy: args.createdBy,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-
-    // Initialize read status for all members
-    for (const memberId of args.memberIds) {
-      await ctx.db.insert("conversationReads", {
-        conversationId,
-        userId: memberId,
-        lastReadAt: Date.now(),
-      });
+  handler: async (ctx: any, args: { participants: string[]; name?: string; isGroup: boolean; createdBy: string }) => {
+    // Verify authenticated user matches createdBy
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    if (!userId || userId !== args.createdBy) {
+      throw new Error("Unauthorized: cannot create conversation as another user");
     }
 
-    return conversationId;
+    // Ensure creator is in participants
+    if (!args.participants.includes(userId)) {
+      throw new Error("Bad Request: creator must be a participant");
+    }
+
+    return await ctx.db.insert("conversations", {
+      participants: args.participants,
+      name: args.name,
+      isGroup: args.isGroup,
+      createdBy: args.createdBy,
+      createdAt: Date.now(),
+    });
   },
 });
 
-export const getOrCreateDirectConversation = mutation({
-  args: { userId1: v.string(), userId2: v.string() },
-  handler: async (ctx, args) => {
-    // Check if conversation already exists - limit to recent 50 for performance
-    const conversations = await ctx.db
+export const updateConversation = mutation({
+  args: {
+    conversationId: v.id("conversations"),
+    name: v.optional(v.string()),
+  },
+  handler: async (ctx: any, args: { conversationId: any; name?: string }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    if (!userId) {
+      throw new Error("Unauthorized");
+    }
+
+    const conversation = await ctx.db.get(args.conversationId) as Conversation;
+    if (!conversation) {
+      throw new Error("Conversation not found");
+    }
+
+    // Only participants can update conversation
+    if (!conversation.participants.includes(userId)) {
+      throw new Error("Unauthorized: not a participant in this conversation");
+    }
+
+    await ctx.db.patch(args.conversationId, {
+      name: args.name,
+    });
+  },
+});
+
+export const addParticipant = mutation({
+  args: {
+    conversationId: v.id("conversations"),
+    userId: v.string(), // Clerk user ID
+  },
+  handler: async (ctx: any, args: { conversationId: any; userId: string }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const authUserId = identity.subject;
+    if (!authUserId) {
+      throw new Error("Unauthorized");
+    }
+
+    const conversation = await ctx.db.get(args.conversationId) as Conversation;
+    if (!conversation) {
+      throw new Error("Conversation not found");
+    }
+
+    // Only existing participants can add new participants
+    if (!conversation.participants.includes(authUserId)) {
+      throw new Error("Unauthorized: only participants can add new members");
+    }
+
+    // Don't add if already a participant
+    if (conversation.participants.includes(args.userId)) {
+      return; // Already a participant
+    }
+
+    await ctx.db.patch(args.conversationId, {
+      participants: [...conversation.participants, args.userId],
+    });
+  },
+});
+
+export const removeParticipant = mutation({
+  args: {
+    conversationId: v.id("conversations"),
+    userId: v.string(), // Clerk user ID
+  },
+  handler: async (ctx: any, args: { conversationId: any; userId: string }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const authUserId = identity.subject;
+    if (!authUserId) {
+      throw new Error("Unauthorized");
+    }
+
+    const conversation = await ctx.db.get(args.conversationId) as Conversation;
+    if (!conversation) {
+      throw new Error("Conversation not found");
+    }
+
+    // Only participants can remove members, and users can remove themselves
+    if (!conversation.participants.includes(authUserId)) {
+      throw new Error("Unauthorized: only participants can remove members");
+    }
+
+    // Users can only remove themselves or be removed by other participants
+    if (authUserId !== args.userId && !conversation.participants.includes(args.userId)) {
+      throw new Error("Bad Request: cannot remove user not in conversation");
+    }
+
+    await ctx.db.patch(args.conversationId, {
+      participants: conversation.participants.filter((p: string) => p !== args.userId),
+    });
+  },
+});
+
+// Mutation to check for existing direct conversation - avoids hook violation in event handlers
+export const findOrCreateDirectConversation = mutation({
+  args: {
+    userId1: v.string(),
+    userId2: v.string(),
+  },
+  handler: async (ctx: any, args: { userId1: string; userId2: string }) => {
+    // Verify authenticated user is one of the requested users
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const authUserId = identity.subject;
+    if (!authUserId || (authUserId !== args.userId1 && authUserId !== args.userId2)) {
+      throw new Error("Unauthorized");
+    }
+
+    // Check if conversation already exists
+    const existingConv = await ctx.db
       .query("conversations")
-      .filter((q) => q.eq("type", "direct"))
-      .take(50);
+      .filter((q: any) => 
+        q.and(
+          q.eq(q.field("isGroup"), false),
+          q.arrayContains("participants", args.userId1),
+          q.arrayContains("participants", args.userId2)
+        )
+      )
+      .first();
 
-    const existing = conversations.find(
-      (conv) =>
-        conv.memberIds.includes(args.userId1) &&
-        conv.memberIds.includes(args.userId2)
-    );
-
-    if (existing) {
-      return existing._id;
+    if (existingConv) {
+      return existingConv._id;
     }
 
     // Create new conversation
-    const conversationId = await ctx.db.insert("conversations", {
-      type: "direct",
-      memberIds: [args.userId1, args.userId2],
-      createdBy: args.userId1,
+    const newConvId = await ctx.db.insert("conversations", {
+      participants: [args.userId1, args.userId2],
+      name: undefined,
+      isGroup: false,
+      createdBy: authUserId,
       createdAt: Date.now(),
-      updatedAt: Date.now(),
     });
 
-    // Initialize read status
-    await ctx.db.insert("conversationReads", {
-      conversationId,
-      userId: args.userId1,
-      lastReadAt: Date.now(),
-    });
-
-    await ctx.db.insert("conversationReads", {
-      conversationId,
-      userId: args.userId2,
-      lastReadAt: Date.now(),
-    });
-
-    return conversationId;
+    return newConvId;
   },
 });
