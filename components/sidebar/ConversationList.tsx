@@ -1,84 +1,113 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Search } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { ConversationItem } from "./ConversationItem";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Id } from "@/convex/_generated/dataModel";
+import { Users } from "lucide-react";
+import { formatTimestamp } from "@/lib/utils";
 
 interface Conversation {
-  id: string;
-  name: string;
-  avatarUrl?: string;
-  lastMessage?: string;
-  lastMessageTime?: string;
+  _id: Id<"conversations">;
+  displayName?: string;
+  displayImage?: string;
+  lastMessage?: { content: string; _creationTime: number } | null;
   unreadCount: number;
+  isGroup: boolean;
+  members: Id<"users">[];
   isOnline?: boolean;
+}
+
+interface ConversationItemProps {
+  conversation: Conversation;
+  isSelected: boolean;
+  onClick: () => void;
+}
+
+export function ConversationItem({
+  conversation,
+  isSelected,
+  onClick,
+}: ConversationItemProps) {
+  const { displayName, displayImage, lastMessage, unreadCount, isGroup, isOnline } = conversation;
+
+  return (
+    <div
+      onClick={onClick}
+      className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors
+        hover:bg-muted ${isSelected ? "bg-muted" : ""}`}
+    >
+      {/* Avatar */}
+      <div className="relative flex-shrink-0">
+        {isGroup ? (
+          <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center">
+            <Users className="h-6 w-6 text-primary" />
+          </div>
+        ) : displayImage ? (
+          <img
+            src={displayImage}
+            alt={displayName}
+            className="h-12 w-12 rounded-full object-cover"
+          />
+        ) : (
+          <div className="h-12 w-12 rounded-full bg-muted-foreground/20 flex items-center justify-center">
+            <span className="text-lg font-medium">
+              {displayName?.[0]?.toUpperCase() ?? "?"}
+            </span>
+          </div>
+        )}
+
+        {/* Online indicator */}
+        {!isGroup && isOnline && (
+          <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full
+                           bg-green-500 border-2 border-background" />
+        )}
+      </div>
+
+      {/* Text */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium truncate">{displayName ?? "Unknown"}</p>
+          {lastMessage && (
+            <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
+              {formatTimestamp(lastMessage._creationTime)}
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground truncate">
+          {lastMessage?.content ?? "No messages yet"}
+        </p>
+      </div>
+
+      {/* Unread badge */}
+      {unreadCount > 0 && (
+        <span className="flex-shrink-0 bg-primary text-primary-foreground
+                         text-xs rounded-full h-5 w-5 flex items-center justify-center">
+          {unreadCount > 99 ? "99+" : unreadCount}
+        </span>
+      )}
+    </div>
+  );
 }
 
 interface ConversationListProps {
   conversations: Conversation[];
-  selectedId?: string;
-  onSelect: (id: string) => void;
-  isLoading?: boolean;
+  selectedConversationId?: Id<"conversations">;
+  onSelectConversation: (id: Id<"conversations">) => void;
 }
 
 export function ConversationList({
   conversations,
-  selectedId,
-  onSelect,
-  isLoading,
+  selectedConversationId,
+  onSelectConversation,
 }: ConversationListProps) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="p-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search conversations..."
-            className="pl-9 bg-muted"
-          />
-        </div>
-      </div>
-
-      <div className="space-y-1 p-2">
-        {!mounted || isLoading ? (
-          Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-3 p-3">
-              <Skeleton className="h-12 w-12 rounded-full" />
-              <div className="flex-1 space-y-2">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-3 w-32" />
-              </div>
-            </div>
-          ))
-        ) : conversations.length === 0 ? (
-          <div className="p-4 text-center text-sm text-muted-foreground">
-            No conversations yet. Start a new chat!
-          </div>
-        ) : (
-          conversations.map((conversation) => (
-            <ConversationItem
-              key={conversation.id}
-              id={conversation.id}
-              name={conversation.name}
-              avatarUrl={conversation.avatarUrl}
-              lastMessage={conversation.lastMessage}
-              lastMessageTime={conversation.lastMessageTime}
-              unreadCount={conversation.unreadCount}
-              isOnline={conversation.isOnline}
-              isSelected={conversation.id === selectedId}
-              onClick={() => onSelect(conversation.id)}
-            />
-          ))
-        )}
-      </div>
+    <div className="space-y-1 p-2">
+      {conversations.map((conversation) => (
+        <ConversationItem
+          key={conversation._id}
+          conversation={conversation}
+          isSelected={conversation._id === selectedConversationId}
+          onClick={() => onSelectConversation(conversation._id)}
+        />
+      ))}
     </div>
   );
 }

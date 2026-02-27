@@ -214,6 +214,45 @@ export const removeParticipant = mutation({
   },
 });
 
+export const createGroup = mutation({
+  args: {
+    name: v.string(),
+    memberIds: v.array(v.id("users")),
+  },
+  handler: async (ctx, { name, memberIds }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthenticated");
+
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .unique();
+
+    if (!currentUser) throw new Error("User not found");
+
+    // Get the Clerk user IDs for all members
+    const memberUsers = await Promise.all(
+      memberIds.map(id => ctx.db.get(id))
+    );
+    
+    const validMembers = memberUsers.filter(user => user !== null) as any[];
+    const memberUserIds = validMembers.map(user => user.userId);
+    
+    // Include current user's ID
+    const allParticipantIds = [currentUser.userId, ...memberUserIds];
+
+    const conversationId = await ctx.db.insert("conversations", {
+      name,
+      isGroup: true,
+      participants: allParticipantIds,
+      createdBy: currentUser.userId,
+      createdAt: Date.now(),
+    });
+
+    return conversationId;
+  },
+});
+
 // Mutation to check for existing direct conversation - avoids hook violation in event handlers
 export const findOrCreateDirectConversation = mutation({
   args: {

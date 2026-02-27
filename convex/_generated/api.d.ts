@@ -10,6 +10,7 @@
 
 import type * as conversationPreview from "../conversationPreview.js";
 import type * as conversations from "../conversations.js";
+import type * as groups from "../groups.js";
 import type * as http from "../http.js";
 import type * as messages from "../messages.js";
 import type * as presence from "../presence.js";
@@ -26,6 +27,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   conversationPreview: typeof conversationPreview;
   conversations: typeof conversations;
+  groups: typeof groups;
   http: typeof http;
   messages: typeof messages;
   presence: typeof presence;

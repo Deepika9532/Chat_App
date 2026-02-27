@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
+import { Id } from "@/convex/_generated/dataModel";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
@@ -13,7 +14,7 @@ export default function ClientHomePage() {
   const { userId, isLoaded } = useAuth();
   const { user } = useUser();
   const router = useRouter();
-  const [selectedConversation, setSelectedConversation] = useState<string | undefined>();
+  const [selectedConversation, setSelectedConversation] = useState<Id<"conversations"> | undefined>();
   
   // Track user presence
   usePresence();
@@ -50,14 +51,13 @@ export default function ClientHomePage() {
   // Transform Convex data to UI format
   const conversations = conversationsData 
     ? conversationsData.map((conv: any) => ({
-        id: conv._id,
-        name: conv.name || (conv.isGroup ? "Group Chat" : "Direct Message"),
-        participants: conv.participants,
-        createdBy: conv.createdBy,
-        createdAt: conv.createdAt,
+        _id: conv._id,
+        displayName: conv.name || (conv.isGroup ? "Group Chat" : "Direct Message"),
+        displayImage: undefined,
+        lastMessage: null,
         unreadCount: 0, // TODO: Implement unread count
-        lastMessage: "No messages yet", // TODO: Get from latest message
-        lastMessageTime: new Date(conv.createdAt).toISOString(),
+        isGroup: conv.isGroup,
+        members: conv.participants,
         isOnline: false, // TODO: Get user online status
       }))
     : [];
@@ -98,13 +98,13 @@ export default function ClientHomePage() {
   }
 
   // Handle conversation selection
-  const handleSelectConversation = (id: string) => {
+  const handleSelectConversation = (id: Id<"conversations">) => {
     setSelectedConversation(id);
     router.push(`/conversation/${id}`);
   };
 
   // Handle new conversation created
-  const handleNewConversation = (conversationId: string) => {
+  const handleNewConversation = (conversationId: Id<"conversations">) => {
     router.push(`/conversation/${conversationId}`);
   };
 

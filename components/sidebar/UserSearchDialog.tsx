@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@clerk/nextjs";
+import { Id } from "@/convex/_generated/dataModel";
 import { useState, useEffect, useMemo } from "react";
 import { Search, UserPlus } from "lucide-react";
 import {
@@ -20,7 +21,7 @@ import { api } from "@/convex/_generated/api";
 interface UserSearchDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConversationCreated?: (conversationId: string) => void;
+  onConversationCreated?: (conversationId: Id<"conversations">) => void;
 }
 
 export function UserSearchDialog({ open, onOpenChange, onConversationCreated }: UserSearchDialogProps) {
@@ -64,7 +65,7 @@ export function UserSearchDialog({ open, onOpenChange, onConversationCreated }: 
         userId2: userId 
       });
 
-      onConversationCreated?.(conversationId as string);
+      onConversationCreated?.(conversationId);
       onOpenChange(false);
     } catch (error) {
       console.error("Failed to start conversation:", error);

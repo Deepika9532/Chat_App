@@ -50,6 +50,21 @@ export function formatRelativeTime(date: Date | string): string {
   return formatDate(date);
 }
 
+export function formatTimestamp(timestamp: number): string {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  const isThisYear = date.getFullYear() === now.getFullYear();
+
+  if (isToday) {
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  } else if (isThisYear) {
+    return date.toLocaleDateString([], { month: "short", day: "numeric" });
+  } else {
+    return date.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+  }
+}
+
 export function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
   return text.slice(0, maxLength) + "...";

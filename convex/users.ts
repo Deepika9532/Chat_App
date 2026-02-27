@@ -125,6 +125,23 @@ export const searchUsers = query({
   },
 });
 
+export const getUsers = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .unique();
+
+    const allUsers = await ctx.db.query("users").collect();
+
+    return allUsers.filter((u) => u._id !== currentUser?._id);
+  },
+});
+
 export const getAllUsers = query({
   args: {},
   handler: async (ctx: any): Promise<User[]> => {
