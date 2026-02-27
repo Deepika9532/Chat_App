@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Phone, Video } from "lucide-react";
 import { useState } from "react";
+import { useWebRTC } from "@/hooks/useWebRTC";
 
 export default function ConversationPage() {
   const { userId } = useAuth();
@@ -28,6 +29,19 @@ export default function ConversationPage() {
 
   const { messages, conversation, participantNames, userMap, isLoading, isTyping, sendMessage, setTyping } =
     useConversation(conversationId);
+  
+  const { 
+    isCalling, 
+    isReceiving, 
+    localStream, 
+    remoteStream, 
+    callType: activeCallType,
+    connectionStatus,
+    networkQuality,
+    startCall,
+    handleIncomingCall,
+    endCall 
+  } = useWebRTC(conversationId);
 
   const handleVoiceCall = () => {
     setCallType('audio');
@@ -40,8 +54,10 @@ export default function ConversationPage() {
   };
 
   const handleCallAction = () => {
-    // In a real app, you would implement the actual call functionality
-    console.log(`${callType} call initiated`);
+    // Start actual WebRTC call
+    if (callType) {
+      startCall(callType);
+    }
     setIsCallDialogOpen(false);
     setCallType(null);
   };
@@ -135,6 +151,46 @@ export default function ConversationPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Active Call Status */}
+      {(isCalling || isReceiving) && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
+            <DialogHeader>
+              <DialogTitle>
+                {isCalling ? 'Calling...' : 'Incoming Call'}
+              </DialogTitle>
+              <DialogDescription>
+                {activeCallType} call with {conversation?.name || (participantNames.length > 0 ? participantNames[0] : "Unknown")}
+                <br />
+                Status: {connectionStatus} | Quality: {networkQuality}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="mt-4 space-y-4">
+              {/* Video/Audio display would go here */}
+              {localStream && (
+                <div className="text-sm text-muted-foreground">
+                  Local stream active
+                </div>
+              )}
+              {remoteStream && (
+                <div className="text-sm text-muted-foreground">
+                  Remote stream active
+                </div>
+              )}
+              
+              <Button 
+                variant="destructive" 
+                onClick={endCall}
+                className="w-full"
+              >
+                End Call
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

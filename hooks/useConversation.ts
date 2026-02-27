@@ -99,7 +99,8 @@ export function useConversation(conversationId: string) {
   // Handle loading state
   useEffect(() => {
     // Both queries return undefined while loading
-    if (conversationData !== undefined || messagesData !== undefined) {
+    // Wait until both queries have either resolved or failed
+    if (conversationData !== undefined && messagesData !== undefined) {
       setIsLoading(false);
     }
   }, [conversationData, messagesData]);

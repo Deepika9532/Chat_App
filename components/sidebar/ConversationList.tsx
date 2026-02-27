@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ConversationItem } from "./ConversationItem";
@@ -28,6 +29,12 @@ export function ConversationList({
   onSelect,
   isLoading,
 }: ConversationListProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="p-3">
@@ -41,7 +48,7 @@ export function ConversationList({
       </div>
 
       <div className="space-y-1 p-2">
-        {isLoading ? (
+        {!mounted || isLoading ? (
           Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="flex items-center gap-3 p-3">
               <Skeleton className="h-12 w-12 rounded-full" />

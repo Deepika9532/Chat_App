@@ -26,10 +26,15 @@ interface UserSearchDialogProps {
 export function UserSearchDialog({ open, onOpenChange, onConversationCreated }: UserSearchDialogProps) {
   const { userId: currentUserId } = useAuth();
   const [searchInput, setSearchInput] = useState("");
+  const [mounted, setMounted] = useState(false);
   
   // Debounced search
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchInput);
@@ -121,13 +126,17 @@ export function UserSearchDialog({ open, onOpenChange, onConversationCreated }: 
                       <p className="text-xs text-muted-foreground">{user.email}</p>
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleStartConversation(user.userId)}
-                  >
-                    <UserPlus className="h-4 w-4" />
-                  </Button>
+                  {!mounted ? (
+                    <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleStartConversation(user.userId)}
+                    >
+                      <UserPlus className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               ))
             ) : null}
