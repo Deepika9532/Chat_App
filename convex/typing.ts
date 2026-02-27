@@ -14,7 +14,11 @@ export const getTypingStatus = query({
     ctx: any, 
     args: { conversationId: any }
   ): Promise<TypingRecord[]> => {
-    const userId = ctx.auth.userId();
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthorized");
+    }
+    const userId = identity.subject;
     if (!userId) {
       throw new Error("Unauthorized");
     }
@@ -52,7 +56,11 @@ export const setTyping = mutation({
     args: { conversationId: any; userId: string; isTyping: boolean }
   ) => {
     // Verify authenticated user matches the userId parameter
-    const authUserId = ctx.auth.userId();
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthorized");
+    }
+    const authUserId = identity.subject;
     if (!authUserId || authUserId !== args.userId) {
       throw new Error("Unauthorized: cannot set typing status for another user");
     }

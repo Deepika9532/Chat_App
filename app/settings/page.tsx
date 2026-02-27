@@ -8,11 +8,8 @@ import {
   User, 
   Shield, 
   Camera, 
-  List, 
   MessageCircle, 
-  Radio, 
   Bell, 
-  Database, 
   Eye, 
   Globe, 
   HelpCircle, 
@@ -21,25 +18,21 @@ import {
   LogOut,
   Moon,
   Sun,
-  Palette,
-  Lock,
-  Key,
-  Trash2,
-  Archive,
-  Volume2,
-  Wifi,
-  Cloud,
-  Smartphone,
-  Monitor,
+  X,
   Mail,
   Phone,
-  MapPin
+  Key,
+  Lock,
+  Trash2,
+  Upload,
+  Languages,
+  Info,
+  AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { 
   Card, 
   CardContent, 
-  CardDescription, 
   CardHeader, 
   CardTitle 
 } from "@/components/ui/card";
@@ -48,8 +41,7 @@ import {
   DialogContent, 
   DialogDescription, 
   DialogHeader, 
-  DialogTitle,
-  DialogTrigger 
+  DialogTitle
 } from "@/components/ui/dialog";
 import { 
   DropdownMenu, 
@@ -82,15 +74,23 @@ export default function SettingsPage() {
   const [darkMode, setDarkMode] = useState(false);
   const [notifications, setNotifications] = useState(true);
   const [readReceipts, setReadReceipts] = useState(true);
-  const [locationSharing, setLocationSharing] = useState(false);
   const [showAvatars, setShowAvatars] = useState(true);
   const [autoDownload, setAutoDownload] = useState(true);
   const [highQualityMedia, setHighQualityMedia] = useState(false);
-  const [fontSize, setFontSize] = useState<'small' | 'medium' | 'large'>('medium');
   const [language, setLanguage] = useState('en-US');
   const [backupEnabled, setBackupEnabled] = useState(false);
   const [lowDataMode, setLowDataMode] = useState(false);
   const [screenSecurity, setScreenSecurity] = useState(true);
+  
+  // Dialog states
+  const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
+  const [isPrivacyDialogOpen, setIsPrivacyDialogOpen] = useState(false);
+  const [isAvatarDialogOpen, setIsAvatarDialogOpen] = useState(false);
+  const [isChatsDialogOpen, setIsChatsDialogOpen] = useState(false);
+  const [isLanguageDialogOpen, setIsLanguageDialogOpen] = useState(false);
+  const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [isUpdatesDialogOpen, setIsUpdatesDialogOpen] = useState(false);
 
   // Handle setting changes
   const handleDarkModeChange = (checked: boolean) => {
@@ -144,11 +144,6 @@ export default function SettingsPage() {
     // In a real app, you would change the app language
   };
 
-  const handleFontSizeChange = (size: 'small' | 'medium' | 'large') => {
-    setFontSize(size);
-    // In a real app, you would adjust the app's font size
-  };
-
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -158,6 +153,7 @@ export default function SettingsPage() {
     }
   };
 
+  // Simplified setting sections - only include essential items
   const settingSections = [
     {
       title: "Account",
@@ -167,21 +163,21 @@ export default function SettingsPage() {
           title: "Account",
           description: "Manage your account settings",
           icon: <User className="h-5 w-5" />,
-          action: () => console.log("Account settings")
+          action: () => setIsAccountDialogOpen(true)
         },
         {
           id: "privacy",
           title: "Privacy",
           description: "Privacy and security settings",
           icon: <Shield className="h-5 w-5" />,
-          action: () => console.log("Privacy settings")
+          action: () => setIsPrivacyDialogOpen(true)
         },
         {
           id: "avatar",
           title: "Avatar",
           description: "Change your profile picture",
           icon: <Camera className="h-5 w-5" />,
-          action: () => console.log("Avatar settings")
+          action: () => setIsAvatarDialogOpen(true)
         }
       ]
     },
@@ -193,7 +189,7 @@ export default function SettingsPage() {
           title: "Chats",
           description: "Chat settings and preferences",
           icon: <MessageCircle className="h-5 w-5" />,
-          action: () => console.log("Chat settings")
+          action: () => setIsChatsDialogOpen(true)
         },
         {
           id: "notifications",
@@ -216,53 +212,8 @@ export default function SettingsPage() {
       ]
     },
     {
-      title: "Lists & Broadcasts",
-      items: [
-        {
-          id: "lists",
-          title: "Lists",
-          description: "Manage your contact lists",
-          icon: <List className="h-5 w-5" />,
-          action: () => console.log("Lists settings")
-        },
-        {
-          id: "broadcasts",
-          title: "Broadcasts",
-          description: "Broadcast message settings",
-          icon: <Radio className="h-5 w-5" />,
-          action: () => console.log("Broadcasts settings")
-        }
-      ]
-    },
-    {
-      title: "Storage & Data",
-      items: [
-        {
-          id: "storage",
-          title: "Storage and Data",
-          description: "Manage storage and data usage",
-          icon: <Database className="h-5 w-5" />,
-          action: () => console.log("Storage settings")
-        },
-        {
-          id: "network",
-          title: "Network Usage",
-          description: "Network usage settings",
-          icon: <Wifi className="h-5 w-5" />,
-          action: () => console.log("Network settings")
-        }
-      ]
-    },
-    {
       title: "Accessibility",
       items: [
-        {
-          id: "accessibility",
-          title: "Accessibility",
-          description: "Accessibility settings",
-          icon: <Eye className="h-5 w-5" />,
-          action: () => console.log("Accessibility settings")
-        },
         {
           id: "dark-mode",
           title: "Dark Mode",
@@ -282,14 +233,7 @@ export default function SettingsPage() {
           title: "App Language",
           description: "Change app language",
           icon: <Globe className="h-5 w-5" />,
-          action: () => console.log("Language settings")
-        },
-        {
-          id: "theme",
-          title: "Theme",
-          description: "App theme settings",
-          icon: <Palette className="h-5 w-5" />,
-          action: () => console.log("Theme settings")
+          action: () => setIsLanguageDialogOpen(true)
         }
       ]
     },
@@ -301,14 +245,14 @@ export default function SettingsPage() {
           title: "Help and Feedback",
           description: "Get help and send feedback",
           icon: <HelpCircle className="h-5 w-5" />,
-          action: () => console.log("Help and feedback")
+          action: () => setIsHelpDialogOpen(true)
         },
         {
           id: "invite",
           title: "Invite a Friend",
           description: "Invite friends to join",
           icon: <UserPlus className="h-5 w-5" />,
-          action: () => console.log("Invite friends")
+          action: () => setIsInviteDialogOpen(true)
         }
       ]
     },
@@ -320,7 +264,7 @@ export default function SettingsPage() {
           title: "App Updates",
           description: "Check for app updates",
           icon: <Download className="h-5 w-5" />,
-          action: () => console.log("Check for updates")
+          action: () => setIsUpdatesDialogOpen(true)
         }
       ]
     }
@@ -421,6 +365,258 @@ export default function SettingsPage() {
         <p>Chat App v1.0.0</p>
         <p className="mt-1">© 2024 Chat App. All rights reserved.</p>
       </div>
+
+      {/* Account Dialog */}
+      <Dialog open={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Account Settings</DialogTitle>
+            <DialogDescription>
+              Manage your account information and security settings
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" defaultValue={user?.primaryEmailAddress?.emailAddress || ""} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number</Label>
+              <Input id="phone" type="tel" placeholder="Enter phone number" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input id="password" type="password" placeholder="Change password" />
+            </div>
+            <Button className="w-full">Save Changes</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Privacy Dialog */}
+      <Dialog open={isPrivacyDialogOpen} onOpenChange={setIsPrivacyDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Privacy Settings</DialogTitle>
+            <DialogDescription>
+              Control your privacy and security preferences
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium">Two-Factor Authentication</h3>
+                <p className="text-sm text-muted-foreground">Add an extra layer of security</p>
+              </div>
+              <Switch />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium">Profile Visibility</h3>
+                <p className="text-sm text-muted-foreground">Who can see your profile</p>
+              </div>
+              <Switch />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium">Read Receipts</h3>
+                <p className="text-sm text-muted-foreground">Show when you've read messages</p>
+              </div>
+              <Switch checked={readReceipts} onCheckedChange={setReadReceipts} />
+            </div>
+            <Button variant="destructive" className="w-full">
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Account
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Avatar Dialog */}
+      <Dialog open={isAvatarDialogOpen} onOpenChange={setIsAvatarDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Change Avatar</DialogTitle>
+            <DialogDescription>
+              Upload a new profile picture or choose from options
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex justify-center">
+              <UserAvatar
+                src={user?.imageUrl}
+                name={user?.fullName || user?.username || "User"}
+                size="lg"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="avatar-upload">Upload Image</Label>
+              <Input id="avatar-upload" type="file" accept="image/*" />
+            </div>
+            <Button className="w-full">
+              <Upload className="h-4 w-4 mr-2" />
+              Upload New Avatar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Chats Dialog */}
+      <Dialog open={isChatsDialogOpen} onOpenChange={setIsChatsDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Chat Settings</DialogTitle>
+            <DialogDescription>
+              Customize your chat experience
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium">Auto-Download Media</h3>
+                <p className="text-sm text-muted-foreground">Download images and videos automatically</p>
+              </div>
+              <Switch checked={autoDownload} onCheckedChange={setAutoDownload} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium">High Quality Media</h3>
+                <p className="text-sm text-muted-foreground">Send and receive high quality images</p>
+              </div>
+              <Switch checked={highQualityMedia} onCheckedChange={setHighQualityMedia} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium">Show Avatars</h3>
+                <p className="text-sm text-muted-foreground">Display user avatars in chats</p>
+              </div>
+              <Switch checked={showAvatars} onCheckedChange={setShowAvatars} />
+            </div>
+            <Button className="w-full">Save Preferences</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Language Dialog */}
+      <Dialog open={isLanguageDialogOpen} onOpenChange={setIsLanguageDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>App Language</DialogTitle>
+            <DialogDescription>
+              Change the language of the application
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="language-select">Select Language</Label>
+              <select 
+                id="language-select" 
+                className="w-full p-2 border rounded-md"
+                value={language}
+                onChange={handleLanguageChange}
+              >
+                <option value="en-US">English (US)</option>
+                <option value="es-ES">Spanish</option>
+                <option value="fr-FR">French</option>
+                <option value="de-DE">German</option>
+                <option value="zh-CN">Chinese</option>
+              </select>
+            </div>
+            <Button className="w-full">Apply Changes</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Help Dialog */}
+      <Dialog open={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Help and Feedback</DialogTitle>
+            <DialogDescription>
+              Get help or send us your feedback
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="help-subject">Subject</Label>
+              <Input id="help-subject" placeholder="Enter subject" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="help-message">Message</Label>
+              <textarea 
+                id="help-message" 
+                className="w-full p-2 border rounded-md h-32"
+                placeholder="Describe your issue or feedback..."
+              />
+            </div>
+            <Button className="w-full">
+              <HelpCircle className="h-4 w-4 mr-2" />
+              Send Feedback
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Invite Dialog */}
+      <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Invite a Friend</DialogTitle>
+            <DialogDescription>
+              Share the app with your friends
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="invite-email">Friend's Email</Label>
+              <Input id="invite-email" type="email" placeholder="Enter email address" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="invite-message">Personal Message</Label>
+              <textarea 
+                id="invite-message" 
+                className="w-full p-2 border rounded-md h-24"
+                placeholder="Add a personal message (optional)..."
+              />
+            </div>
+            <Button className="w-full">
+              <UserPlus className="h-4 w-4 mr-2" />
+              Send Invitation
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Updates Dialog */}
+      <Dialog open={isUpdatesDialogOpen} onOpenChange={setIsUpdatesDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>App Updates</DialogTitle>
+            <DialogDescription>
+              Check for and manage app updates
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+              <div>
+                <h3 className="font-medium">Current Version</h3>
+                <p className="text-sm text-muted-foreground">v1.0.0</p>
+              </div>
+              <Info className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+              <div>
+                <h3 className="font-medium">Latest Version</h3>
+                <p className="text-sm text-muted-foreground">v1.0.0</p>
+              </div>
+              <AlertCircle className="h-5 w-5 text-green-500" />
+            </div>
+            <Button className="w-full" disabled>
+              Check for Updates
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

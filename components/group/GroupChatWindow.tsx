@@ -1,13 +1,10 @@
 "use client";
 
-import { redirect } from "next/navigation";
+import { useState } from "react";
 import { useAuth } from "@clerk/nextjs";
-import { useParams } from "next/navigation";
-import { useConversation } from "@/hooks/useConversation";
 import { ChatHeader } from "@/components/chat/ChatHeader";
 import { MessageList } from "@/components/chat/MessageList";
 import { MessageInput } from "@/components/chat/MessageInput";
-import { EmptyState } from "@/components/chat/EmptyState";
 import { 
   Dialog, 
   DialogContent, 
@@ -16,18 +13,36 @@ import {
   DialogTitle 
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Phone, Video } from "lucide-react";
-import { useState } from "react";
+import { Phone, Video, Users, Settings } from "lucide-react";
 
-export default function ConversationPage() {
+interface GroupChatWindowProps {
+  groupId: string;
+  groupName: string;
+  participants: any[];
+  messages: any[];
+  isLoading: boolean;
+  isTyping: boolean;
+  onSendMessage: (content: string) => void;
+  onSetTyping: (typing: boolean) => void;
+  onLeaveGroup: () => void;
+  onGroupSettings: () => void;
+}
+
+export function GroupChatWindow({
+  groupId,
+  groupName,
+  participants,
+  messages,
+  isLoading,
+  isTyping,
+  onSendMessage,
+  onSetTyping,
+  onLeaveGroup,
+  onGroupSettings
+}: GroupChatWindowProps) {
   const { userId } = useAuth();
-  const params = useParams();
-  const conversationId = params.id as string;
   const [isCallDialogOpen, setIsCallDialogOpen] = useState(false);
   const [callType, setCallType] = useState<'audio' | 'video' | null>(null);
-
-  const { messages, conversation, participantNames, userMap, isLoading, isTyping, sendMessage, setTyping } =
-    useConversation(conversationId);
 
   const handleVoiceCall = () => {
     setCallType('audio');
@@ -40,46 +55,29 @@ export default function ConversationPage() {
   };
 
   const handleCallAction = () => {
-    // In a real app, you would implement the actual call functionality
-    console.log(`${callType} call initiated`);
+    // In a real app, you would implement the actual group call functionality
+    console.log(`${callType} group call initiated for ${groupName}`);
     setIsCallDialogOpen(false);
     setCallType(null);
   };
 
-  if (!userId) {
-    redirect("/sign-in");
-  }
+  const handleMore = () => {
+    // Show group options menu
+    console.log("Group options menu");
+  };
 
-  if (isLoading) {
-    return (
-      <div className="flex flex-col h-screen">
-        <div className="h-16 border-b bg-background animate-pulse" />
-        <div className="flex-1 bg-muted/20" />
-        <div className="h-20 border-t bg-background animate-pulse" />
-      </div>
-    );
-  }
-
-  if (!conversation) {
-    return (
-      <div className="flex flex-col h-screen">
-        <ChatHeader name="Loading..." />
-        <EmptyState
-          title="Conversation not found"
-          description="This conversation may have been deleted or doesn't exist"
-        />
-      </div>
-    );
-  }
+  const participantCount = participants?.length || 0;
 
   return (
     <div className="flex flex-col h-screen">
       <ChatHeader
-        name={conversation.name || (participantNames.length > 0 ? participantNames[0] : "Unknown")}
-        isOnline={false}
+        name={`${groupName} (${participantCount})`}
+        isOnline={true}
         isTyping={isTyping}
         onVideoCall={handleVideoCall}
         onVoiceCall={handleVoiceCall}
+        onSearch={() => console.log("Group search")}
+        onMore={handleMore}
       />
 
       <MessageList
@@ -87,30 +85,37 @@ export default function ConversationPage() {
           id: msg.id,
           content: msg.content,
           senderId: msg.senderId,
-          senderName: msg.senderId === userId ? "You" : (userMap[msg.senderId]?.name || "Unknown User"),
-          senderAvatar: userMap[msg.senderId]?.avatarUrl,
-          senderIsOnline: userMap[msg.senderId]?.isOnline,
+          senderName: msg.senderId === userId ? "You" : msg.senderName,
+          senderAvatar: msg.senderAvatar,
+          senderIsOnline: msg.senderIsOnline,
           createdAt: new Date(msg.createdAt),
           isCurrentUser: msg.senderId === userId,
         }))}
-        currentUserId={userId}
+        currentUserId={userId || ""}
         isLoading={isLoading}
         isTyping={isTyping}
       />
 
       <MessageInput
-        onSend={sendMessage}
-        onTyping={() => setTyping(true)}
-        onStopTyping={() => setTyping(false)}
+        onSend={onSendMessage}
+        onTyping={() => onSetTyping(true)}
+        onStopTyping={() => onSetTyping(false)}
       />
 
-      {/* Call Dialog */}
+      {/* Group Call Dialog */}
       <Dialog open={isCallDialogOpen} onOpenChange={setIsCallDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Start {callType === 'audio' ? 'Voice' : 'Video'} Call</DialogTitle>
+            <DialogTitle>Start Group {callType === 'audio' ? 'Voice' : 'Video'} Call</DialogTitle>
             <DialogDescription>
-              Would you like to start a {callType === 'audio' ? 'voice' : 'video'} call with {conversation.name || (participantNames.length > 0 ? participantNames[0] : "Unknown")}?
+              Would you like to start a {callType === 'audio' ? 'voice' : 'video'} call with the group "{groupName}"?
+              {participantCount > 0 && (
+                <div className="mt-2">
+                  <p className="text-sm text-muted-foreground">
+                    Participants: {participantCount} members
+                  </p>
+                </div>
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="flex gap-3 mt-4">

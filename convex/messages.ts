@@ -21,7 +21,11 @@ export const getMessages = query({
     ctx: any, 
     args: { conversationId: any; limit?: number; cursor?: string }
   ): Promise<Message[]> => {
-    const userId = ctx.auth.userId();
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthorized");
+    }
+    const userId = identity.subject;
     if (!userId) {
       throw new Error("Unauthorized");
     }
@@ -70,7 +74,11 @@ export const createMessage = mutation({
     args: { conversationId: any; senderId: string; content: string; attachments?: any[] }
   ) => {
     // Verify authenticated user matches sender
-    const userId = ctx.auth.userId();
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthorized");
+    }
+    const userId = identity.subject;
     if (!userId || userId !== args.senderId) {
       throw new Error("Unauthorized: cannot send messages as another user");
     }
@@ -111,7 +119,11 @@ export const createMessage = mutation({
 export const deleteMessage = mutation({
   args: { messageId: v.id("messages") },
   handler: async (ctx: any, args: { messageId: any }) => {
-    const userId = ctx.auth.userId();
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthorized");
+    }
+    const userId = identity.subject;
     if (!userId) {
       throw new Error("Unauthorized");
     }
@@ -122,11 +134,12 @@ export const deleteMessage = mutation({
       throw new Error("Message not found");
     }
 
-    // Only the sender can delete their own message
+    // Only the sender can delete their own messages
     if (message.senderId !== userId) {
       throw new Error("Unauthorized: can only delete your own messages");
     }
 
+    // Mark as deleted instead of actually deleting
     await ctx.db.patch(args.messageId, {
       isDeleted: true,
     });
@@ -174,7 +187,11 @@ export const updateMessage = mutation({
 export const getLastMessage = query({
   args: { conversationId: v.id("conversations") },
   handler: async (ctx: any, args: { conversationId: any }): Promise<Message | null> => {
-    const userId = ctx.auth.userId();
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthorized");
+    }
+    const userId = identity.subject;
     if (!userId) {
       throw new Error("Unauthorized");
     }
@@ -201,3 +218,13 @@ export const getLastMessage = query({
     return lastMessage;
   },
 });
+
+
+
+
+
+
+
+
+
+

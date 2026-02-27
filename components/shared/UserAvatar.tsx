@@ -24,7 +24,9 @@ export function UserAvatar({
     if (!name || name.trim().length === 0) return "?";
     const parts = name.trim().split(" ").filter(Boolean);
     if (parts.length >= 2) {
-      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+      const firstInitial = parts[0]?.[0] || '';
+      const secondInitial = parts[1]?.[0] || '';
+      return `${firstInitial}${secondInitial}`.toUpperCase();
     }
     return name.slice(0, 2).toUpperCase();
   };

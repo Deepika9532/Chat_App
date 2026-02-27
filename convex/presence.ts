@@ -14,7 +14,11 @@ export const getPresence = query({
     ctx: any, 
     args: { userId: string }
   ): Promise<PresenceRecord | null> => {
-    const authUserId = ctx.auth.userId();
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthorized");
+    }
+    const authUserId = identity.subject;
     
     // Users can only view their own presence or if they're authenticated
     if (!authUserId) {
@@ -39,7 +43,11 @@ export const setPresence = mutation({
     args: { userId: string; status: "online" | "offline" | "away" }
   ) => {
     // Verify authenticated user matches the userId parameter
-    const authUserId = ctx.auth.userId();
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthorized");
+    }
+    const authUserId = identity.subject;
     if (!authUserId || authUserId !== args.userId) {
       throw new Error("Unauthorized: cannot set presence for another user");
     }
