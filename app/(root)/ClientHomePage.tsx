@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { Id } from "@/convex/_generated/dataModel";
 import { useRouter } from "next/navigation";
-import { Sidebar } from "@/components/sidebar/Sidebar";
+import { Sidebar } from "@/components/sidebar/sidebar";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { usePresence } from "@/hooks/usePresence";
 import { useQuery, useMutation } from "convex/react";
