@@ -69,7 +69,7 @@ export const useWebRTC = (conversationId: string) => {
     pc.ontrack = (event) => {
       setCallState(prev => ({
         ...prev,
-        remoteStream: event.streams[0]
+        remoteStream: event.streams[0] ?? null
       }));
     };
 
